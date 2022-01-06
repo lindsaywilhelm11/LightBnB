@@ -16,13 +16,19 @@ const pool = new Pool({
  * @param {String} email The email of the user.
  * @return {Promise<{}>} A promise to the user.
  */
-const getUserWithEmail = function(email) {
+const getUserWithEmail = (email) => {
   return pool.query(
     `SELECT * 
     FROM users 
-    WHERE email = $1`, [email]
+    WHERE email = $1;`, [email]
     )
-  .then((result) => result.rows)
+  .then((result) => {
+  if (result) {
+    return result.rows[0];
+  } else {
+    return null;
+  }
+})
   .catch((err) => {
     console.log(err.message);
   });
@@ -50,9 +56,15 @@ const getUserWithId = function(id) {
   return pool.query(
     `SELECT * 
     FROM users 
-    WHERE id = $1`, [id]
+    WHERE users.id = $1;`, [id]
     )
-  .then((result) => result.rows)
+    .then((result) => {
+      if (result) {
+        return result.rows[0];
+      } else {
+        return null;
+      }
+    })
   .catch((err) => {
     console.log(err.message);
   });
@@ -86,7 +98,20 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
+  return pool.query(`
+    SELECT properties.*, reservations.*, avg(rating) as average_rating
+    FROM reservations
+    JOIN properties ON reservations.property.id = properties_id
+    JOIN property_reviews ON property_reviews.property.id = properties_id
+    WHERE end_date < NOW()::DATE 
+    AND reservations.guest_id = $1
+    GROUP BY properties.id, reservations.id
+    ORDER BY reservations.start_date
+    limit $2;`, [guest_id, limit])
+    .then((result) => result.rows)
+    .catch((err) => {
+      console.log(err.message);
+    });
 }
 exports.getAllReservations = getAllReservations;
 
